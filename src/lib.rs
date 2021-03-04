@@ -143,7 +143,7 @@ impl InnerAccessToken {
   }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "grant_type")]
 #[serde(rename_all = "snake_case")]
 pub enum TokenRequest {
