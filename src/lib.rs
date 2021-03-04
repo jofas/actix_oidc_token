@@ -4,14 +4,20 @@ use actix_web::client::Client;
 
 use actix_web_httpauth::headers::authorization::Bearer;
 
-use serde::ser::{Serialize, SerializeMap, Serializer};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
+
+use tokio::sync::RwLock;
+
+use tracing::{event, Level};
 
 use std::option::NoneError;
+use std::sync::Arc;
+use std::time::Duration;
 
 pub mod error {
-  use actix_web::client::{SendRequestError, JsonPayloadError};
+  use actix_web::client::{JsonPayloadError, SendRequestError};
 
+  #[derive(Debug)]
   pub enum Error {
     SendRequestError(SendRequestError),
     JsonPayloadError(JsonPayloadError),
@@ -30,25 +36,83 @@ pub mod error {
   }
 }
 
+#[derive(Clone)]
 pub struct AccessToken {
-  token_response: Option<TokenResponse>,
-  endpoint: String,
-  token_request: TokenRequest,
+  inner: Arc<RwLock<InnerAccessToken>>,
 }
 
 impl AccessToken {
   pub fn new(
     endpoint: String,
     token_request: TokenRequest,
-  ) -> AccessToken {
-    AccessToken {
+  ) -> Result<Self, error::Error> {
+    let inner = InnerAccessToken::new(endpoint, token_request);
+
+    let res = AccessToken {
+      inner: Arc::new(RwLock::new(inner)),
+    };
+
+    Ok(res)
+  }
+
+  pub async fn periodically_refresh_access_token(&'static self) {
+    let client = Client::builder().disable_timeout().finish();
+
+    self.refresh_token(&client).await;
+
+    actix_web::rt::spawn(async move {
+      loop {
+        actix_web::rt::time::delay_for({
+          let expires_in = match self.inner.read().await.expires_in()
+          {
+            Some(expires_in) => expires_in as f64,
+            None => 60.,
+          };
+
+          Duration::from_secs_f64(expires_in * 0.98_f64)
+        })
+        .await;
+
+        self.refresh_token(&client).await;
+      }
+    });
+  }
+
+  async fn refresh_token(&self, client: &Client) {
+    match self.inner.write().await.get_token(client).await {
+      Ok(()) => {
+        event!(Level::INFO, "successfully refreshed token")
+      }
+      Err(e) => event!(
+        Level::ERROR, msg = "could not refresh token", error = ?e
+      ),
+    }
+  }
+
+  pub async fn bearer(&self) -> Result<Bearer, NoneError> {
+    self.inner.read().await.bearer()
+  }
+}
+
+struct InnerAccessToken {
+  token_response: Option<TokenResponse>,
+  endpoint: String,
+  token_request: TokenRequest,
+}
+
+impl InnerAccessToken {
+  fn new(
+    endpoint: String,
+    token_request: TokenRequest,
+  ) -> InnerAccessToken {
+    InnerAccessToken {
       token_response: None,
       endpoint,
       token_request,
     }
   }
 
-  pub async fn get_token(
+  async fn get_token(
     &mut self,
     client: &Client,
   ) -> Result<(), error::Error> {
@@ -65,21 +129,24 @@ impl AccessToken {
     Ok(())
   }
 
-  pub fn expires_in(&self) -> Option<i64> {
+  fn expires_in(&self) -> Option<i64> {
     let token_response = self.token_response.as_ref()?;
     Some(token_response.expires_in)
   }
 
-  pub fn access_token(&self) -> Option<String> {
+  fn access_token(&self) -> Option<String> {
     let token_response = self.token_response.as_ref()?;
     Some(token_response.access_token.clone())
   }
 
-  pub fn bearer(&self) -> Result<Bearer, NoneError> {
+  fn bearer(&self) -> Result<Bearer, NoneError> {
     Ok(Bearer::new(self.access_token()?))
   }
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "grant_type")]
+#[serde(rename_all = "snake_case")]
 pub enum TokenRequest {
   ClientCredentials {
     client_id: String,
@@ -88,37 +155,7 @@ pub enum TokenRequest {
   Password {
     username: String,
     password: String,
-  }
-}
-
-impl Serialize for TokenRequest {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    match self {
-      TokenRequest::ClientCredentials {
-        client_id,
-        client_secret,
-      } => {
-        let mut s = serializer.serialize_map(Some(3))?;
-        s.serialize_entry("client_id", client_id)?;
-        s.serialize_entry("client_secret", client_secret)?;
-        s.serialize_entry("grant_type", "client_credentials")?;
-        s.end()
-      }
-      TokenRequest::Password {
-        username,
-        password,
-      } => {
-        let mut s = serializer.serialize_map(Some(3))?;
-        s.serialize_entry("username", username)?;
-        s.serialize_entry("password", password)?;
-        s.serialize_entry("grant_type", "password")?;
-        s.end()
-      }
-    }
-  }
+  },
 }
 
 #[derive(Deserialize)]
@@ -143,8 +180,8 @@ mod tests {
     assert_eq!(
       to_string(token_request).unwrap(),
       concat!(
-        "client_id=some+id&client_secret=some+secret&",
-        "grant_type=client_credentials"
+        "grant_type=client_credentials",
+        "&client_id=some+id&client_secret=some+secret",
       )
     );
   }
@@ -159,8 +196,8 @@ mod tests {
     assert_eq!(
       to_string(token_request).unwrap(),
       concat!(
-        "username=some+name&password=some+password&",
-        "grant_type=password"
+        "grant_type=password",
+        "&username=some+name&password=some+password",
       )
     );
   }
