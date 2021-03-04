@@ -4,7 +4,7 @@ use actix_web::client::Client;
 
 use actix_web_httpauth::headers::authorization::Bearer;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use tokio::sync::RwLock;
 
@@ -42,10 +42,7 @@ pub struct AccessToken {
 }
 
 impl AccessToken {
-  pub fn new(
-    endpoint: String,
-    token_request: TokenRequest,
-  ) -> Self {
+  pub fn new(endpoint: String, token_request: TokenRequest) -> Self {
     let inner = InnerAccessToken::new(endpoint, token_request);
 
     AccessToken {
@@ -156,6 +153,25 @@ pub enum TokenRequest {
   },
 }
 
+impl TokenRequest {
+  pub fn client_credentials(
+    client_id: String,
+    client_secret: String,
+  ) -> Self {
+    Self::ClientCredentials {
+      client_id: client_id,
+      client_secret: client_secret,
+    }
+  }
+
+  pub fn password(username: String, password: String) -> Self {
+    Self::Password {
+      username: username,
+      password: password,
+    }
+  }
+}
+
 #[derive(Deserialize)]
 pub struct TokenResponse {
   pub access_token: String,
@@ -170,10 +186,10 @@ mod tests {
 
   #[test]
   fn serializing_client_credentials_token_request_to_url_encoded() {
-    let token_request = TokenRequest::ClientCredentials {
-      client_id: String::from("some id"),
-      client_secret: String::from("some secret"),
-    };
+    let token_request = TokenRequest::client_credentials(
+      String::from("some id"),
+      String::from("some secret"),
+    );
 
     assert_eq!(
       to_string(token_request).unwrap(),
@@ -186,10 +202,10 @@ mod tests {
 
   #[test]
   fn serializing_password_token_request_to_url_encoded() {
-    let token_request = TokenRequest::Password {
-      username: String::from("some name"),
-      password: String::from("some password"),
-    };
+    let token_request = TokenRequest::password(
+      String::from("some name"),
+      String::from("some password"),
+    );
 
     assert_eq!(
       to_string(token_request).unwrap(),
