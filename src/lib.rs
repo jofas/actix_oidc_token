@@ -45,14 +45,12 @@ impl AccessToken {
   pub fn new(
     endpoint: String,
     token_request: TokenRequest,
-  ) -> Result<Self, error::Error> {
+  ) -> Self {
     let inner = InnerAccessToken::new(endpoint, token_request);
 
-    let res = AccessToken {
+    AccessToken {
       inner: Arc::new(RwLock::new(inner)),
-    };
-
-    Ok(res)
+    }
   }
 
   pub async fn periodically_refresh_access_token(&'static self) {
