@@ -50,10 +50,12 @@ impl AccessToken {
     }
   }
 
-  pub async fn periodically_refresh_access_token(&'static self) {
+  pub async fn periodically_refresh_access_token(self) -> Self {
     let client = Client::builder().disable_timeout().finish();
 
     self.refresh_token(&client).await;
+
+    let res = self.clone();
 
     actix_web::rt::spawn(async move {
       loop {
@@ -71,6 +73,8 @@ impl AccessToken {
         self.refresh_token(&client).await;
       }
     });
+
+    res
   }
 
   async fn refresh_token(&self, client: &Client) {
