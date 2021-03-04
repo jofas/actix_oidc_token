@@ -50,7 +50,7 @@ impl AccessToken {
     }
   }
 
-  pub async fn periodically_refresh_access_token(self) -> Self {
+  pub async fn periodically_refresh(self) -> Self {
     let client = Client::builder().disable_timeout().finish();
 
     self.refresh_token(&client).await;
