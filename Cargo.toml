@@ -1,0 +1,13 @@
+[package]
+name = "actix-oidc-token"
+version = "0.1.0"
+authors = ["jofas <jonas@fc-web.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "^3.3.2"
+actix-web-httpauth = "^0.5.0"
+serde = { version = "^1.0.123", features = ["derive"] }
+serde_urlencoded = "^0.7.0"
