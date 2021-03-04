@@ -154,6 +154,7 @@ pub enum TokenRequest {
   Password {
     username: String,
     password: String,
+    client_id: Option<String>,
   },
 }
 
@@ -172,6 +173,25 @@ impl TokenRequest {
     Self::Password {
       username: username,
       password: password,
+      client_id: None,
+    }
+  }
+
+  pub fn password_with_client_id(
+    username: String, password: String, client_id: String
+  ) -> Self {
+    Self::Password {
+      username: username,
+      password: password,
+      client_id: Some(client_id),
+    }
+  }
+
+  pub fn add_client_id(self, client_id: String) -> Self {
+    match self {
+      Self::Password { username, password, client_id: _ } =>
+        Self::password_with_client_id(username, password, client_id),
+      other => other,
     }
   }
 }
@@ -216,6 +236,23 @@ mod tests {
       concat!(
         "grant_type=password",
         "&username=some+name&password=some+password",
+      )
+    );
+  }
+
+  #[test]
+  fn serializing_password_token_request_with_id_to_url_encoded() {
+    let token_request = TokenRequest::password_with_client_id(
+      String::from("some name"),
+      String::from("some password"),
+      String::from("some id"),
+    );
+
+    assert_eq!(
+      to_string(token_request).unwrap(),
+      concat!(
+        "grant_type=password&username=some+name",
+        "&password=some+password&client_id=some+id",
       )
     );
   }
