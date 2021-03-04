@@ -9,6 +9,11 @@ endpoint.
 TODO
 ----
 
+* ``TokenResponse`` with ``refresh_token`` and ``AccessToken`` refresh
+  with that token instead of using the credentials again
+
+  **NOTE:** refresh token optional, depending on endpoint
+
 * clippy setup
 
 * documentation
