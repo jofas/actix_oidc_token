@@ -156,6 +156,10 @@ pub enum TokenRequest {
     password: String,
     client_id: Option<String>,
   },
+  RefreshToken {
+    refresh_token: String,
+    client_id: Option<String>,
+  }
 }
 
 impl TokenRequest {
@@ -181,8 +185,24 @@ impl TokenRequest {
     username: String, password: String, client_id: String
   ) -> Self {
     Self::Password {
-      username: username,
-      password: password,
+      username,
+      password,
+      client_id: Some(client_id),
+    }
+  }
+
+  pub fn refresh_token(refresh_token: String) -> Self {
+    Self::RefreshToken {
+      refresh_token,
+      client_id: None,
+    }
+  }
+
+  pub fn refresh_token_with_client_id(
+    refresh_token: String, client_id: String,
+  ) -> Self {
+    Self::RefreshToken {
+      refresh_token,
       client_id: Some(client_id),
     }
   }
@@ -191,6 +211,8 @@ impl TokenRequest {
     match self {
       Self::Password { username, password, client_id: _ } =>
         Self::password_with_client_id(username, password, client_id),
+      Self::RefreshToken { refresh_token, client_id: _ } =>
+        Self::refresh_token_with_client_id(refresh_token, client_id),
       other => other,
     }
   }
@@ -253,6 +275,34 @@ mod tests {
       concat!(
         "grant_type=password&username=some+name",
         "&password=some+password&client_id=some+id",
+      )
+    );
+  }
+
+  #[test]
+  fn serializing_refresh_token_request_to_url_encoded() {
+    let token_request = TokenRequest::refresh_token(
+      String::from("token"),
+    );
+
+    assert_eq!(
+      to_string(token_request).unwrap(),
+      "grant_type=refresh_token&refresh_token=token".to_owned(),
+    );
+  }
+
+  #[test]
+  fn serializing_refresh_token_request_with_id_to_url_encoded() {
+    let token_request = TokenRequest::refresh_token_with_client_id(
+      String::from("token"),
+      String::from("some id"),
+    );
+
+    assert_eq!(
+      to_string(token_request).unwrap(),
+      concat!(
+        "grant_type=refresh_token&refresh_token=token",
+        "&client_id=some+id",
       )
     );
   }
