@@ -79,18 +79,7 @@ impl AccessToken {
 
   pub async fn refresh_token(&self, client: &Client) {
     self.log_token_request(
-      self.inner.write().await.get_token(client).await
-    );
-  }
-
-  pub async fn refresh_token_with_token_request(
-    &self, token_request: &TokenRequest, client: &Client
-  ) {
-    self.log_token_request(
-      self.inner.write().await.get_token_with_token_request(
-        token_request, client
-      )
-      .await
+      self.inner.write().await.get_token(client).await,
     );
   }
 
@@ -102,7 +91,10 @@ impl AccessToken {
     self.inner.read().await.token_response()
   }
 
-  fn log_token_request(&self, token_request_result: Result<(), error::Error>) {
+  fn log_token_request(
+    &self,
+    token_request_result: Result<(), error::Error>,
+  ) {
     match token_request_result {
       Ok(()) => {
         event!(Level::INFO, "successfully refreshed token")
@@ -136,35 +128,16 @@ impl InnerAccessToken {
     &mut self,
     client: &Client,
   ) -> Result<(), error::Error> {
-    let token_request = self.token_request();
-    self.get_token_with_token_request(&token_request, client).await
-  }
-
-  async fn get_token_with_token_request(
-    &mut self,
-    token_request: &TokenRequest,
-    client: &Client
-  ) -> Result<(), error::Error> {
     self.token_response = Some(
       client
         .post(&self.endpoint)
-        .send_form(&token_request)
+        .send_form(&self.token_request)
         .await?
         .json()
         .await?,
     );
 
     Ok(())
-  }
-
-  fn token_request(&self) -> TokenRequest {
-    if let Some(tr) = &self.token_response {
-      if let Some(rt) = &tr.refresh_token {
-        return TokenRequest::refresh_token(rt.clone());
-      }
-    }
-
-    self.token_request.clone()
   }
 
   fn expires_in(&self) -> Option<i64> {
