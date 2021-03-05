@@ -77,7 +77,7 @@ impl AccessToken {
     res
   }
 
-  async fn refresh_token(&self, client: &Client) {
+  pub async fn refresh_token(&self, client: &Client) {
     match self.inner.write().await.get_token(client).await {
       Ok(()) => {
         event!(Level::INFO, "successfully refreshed token")
