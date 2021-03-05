@@ -273,7 +273,7 @@ impl TokenRequest {
   }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, PartialEq)]
 pub struct TokenResponse {
   pub access_token: String,
   pub expires_in: i64,
