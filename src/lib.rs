@@ -78,7 +78,32 @@ impl AccessToken {
   }
 
   pub async fn refresh_token(&self, client: &Client) {
-    match self.inner.write().await.get_token(client).await {
+    self.log_token_request(
+      self.inner.write().await.get_token(client).await
+    );
+  }
+
+  pub async fn refresh_token_with_token_request(
+    &self, token_request: &TokenRequest, client: &Client
+  ) {
+    self.log_token_request(
+      self.inner.write().await.get_token_with_token_request(
+        token_request, client
+      )
+      .await
+    );
+  }
+
+  pub async fn bearer(&self) -> Result<Bearer, NoneError> {
+    self.inner.read().await.bearer()
+  }
+
+  pub async fn token_response(&self) -> Option<TokenResponse> {
+    self.inner.read().await.token_response()
+  }
+
+  fn log_token_request(&self, token_request_result: Result<(), error::Error>) {
+    match token_request_result {
       Ok(()) => {
         event!(Level::INFO, "successfully refreshed token")
       }
@@ -86,10 +111,6 @@ impl AccessToken {
         Level::ERROR, msg = "could not refresh token", error = ?e
       ),
     }
-  }
-
-  pub async fn bearer(&self) -> Result<Bearer, NoneError> {
-    self.inner.read().await.bearer()
   }
 }
 
@@ -116,7 +137,14 @@ impl InnerAccessToken {
     client: &Client,
   ) -> Result<(), error::Error> {
     let token_request = self.token_request();
+    self.get_token_with_token_request(&token_request, client).await
+  }
 
+  async fn get_token_with_token_request(
+    &mut self,
+    token_request: &TokenRequest,
+    client: &Client
+  ) -> Result<(), error::Error> {
     self.token_response = Some(
       client
         .post(&self.endpoint)
@@ -147,6 +175,10 @@ impl InnerAccessToken {
   fn access_token(&self) -> Option<String> {
     let token_response = self.token_response.as_ref()?;
     Some(token_response.access_token.clone())
+  }
+
+  fn token_response(&self) -> Option<TokenResponse> {
+    self.token_response.clone()
   }
 
   fn bearer(&self) -> Result<Bearer, NoneError> {
@@ -241,7 +273,7 @@ impl TokenRequest {
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct TokenResponse {
   pub access_token: String,
   pub expires_in: i64,
