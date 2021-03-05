@@ -278,7 +278,7 @@ pub struct TokenResponse {
   pub access_token: String,
   pub expires_in: i64,
   pub refresh_token: Option<String>,
-  pub refresh_expires_in: Option<String>,
+  pub refresh_expires_in: Option<i64>,
 }
 
 #[cfg(test)]
