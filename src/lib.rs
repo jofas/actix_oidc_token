@@ -115,17 +115,28 @@ impl InnerAccessToken {
     &mut self,
     client: &Client,
   ) -> Result<(), error::Error> {
+    let token_request = self.token_request();
+
     self.token_response = Some(
       client
         .post(&self.endpoint)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .send_form(&self.token_request)
+        .send_form(&token_request)
         .await?
         .json()
         .await?,
     );
 
     Ok(())
+  }
+
+  fn token_request(&self) -> TokenRequest {
+    if let Some(tr) = &self.token_response {
+      if let Some(rt) = &tr.refresh_token {
+        return TokenRequest::refresh_token(rt.clone());
+      }
+    }
+
+    self.token_request.clone()
   }
 
   fn expires_in(&self) -> Option<i64> {
@@ -143,7 +154,7 @@ impl InnerAccessToken {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "grant_type")]
 #[serde(rename_all = "snake_case")]
 pub enum TokenRequest {
@@ -159,7 +170,7 @@ pub enum TokenRequest {
   RefreshToken {
     refresh_token: String,
     client_id: Option<String>,
-  }
+  },
 }
 
 impl TokenRequest {
@@ -182,7 +193,9 @@ impl TokenRequest {
   }
 
   pub fn password_with_client_id(
-    username: String, password: String, client_id: String
+    username: String,
+    password: String,
+    client_id: String,
   ) -> Self {
     Self::Password {
       username,
@@ -199,7 +212,8 @@ impl TokenRequest {
   }
 
   pub fn refresh_token_with_client_id(
-    refresh_token: String, client_id: String,
+    refresh_token: String,
+    client_id: String,
   ) -> Self {
     Self::RefreshToken {
       refresh_token,
@@ -209,10 +223,19 @@ impl TokenRequest {
 
   pub fn add_client_id(self, client_id: String) -> Self {
     match self {
-      Self::Password { username, password, client_id: _ } =>
-        Self::password_with_client_id(username, password, client_id),
-      Self::RefreshToken { refresh_token, client_id: _ } =>
-        Self::refresh_token_with_client_id(refresh_token, client_id),
+      Self::Password {
+        username,
+        password,
+        client_id: _,
+      } => {
+        Self::password_with_client_id(username, password, client_id)
+      }
+      Self::RefreshToken {
+        refresh_token,
+        client_id: _,
+      } => {
+        Self::refresh_token_with_client_id(refresh_token, client_id)
+      }
       other => other,
     }
   }
@@ -222,6 +245,8 @@ impl TokenRequest {
 pub struct TokenResponse {
   pub access_token: String,
   pub expires_in: i64,
+  pub refresh_token: Option<String>,
+  pub refresh_expires_in: Option<String>,
 }
 
 #[cfg(test)]
@@ -281,9 +306,8 @@ mod tests {
 
   #[test]
   fn serializing_refresh_token_request_to_url_encoded() {
-    let token_request = TokenRequest::refresh_token(
-      String::from("token"),
-    );
+    let token_request =
+      TokenRequest::refresh_token(String::from("token"));
 
     assert_eq!(
       to_string(token_request).unwrap(),
