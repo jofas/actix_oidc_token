@@ -254,6 +254,12 @@ pub struct TokenResponse {
   pub refresh_expires_in: Option<i64>,
 }
 
+impl TokenResponse {
+  pub fn bearer(&self) -> Bearer {
+    Bearer::new(self.access_token.clone())
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::TokenRequest;
