@@ -95,13 +95,10 @@ impl AccessToken {
     &self,
     token_request_result: Result<(), error::Error>,
   ) {
-    match token_request_result {
-      Ok(()) => {
-        event!(Level::INFO, "successfully refreshed token")
-      }
-      Err(e) => event!(
+    if let Err(e) = token_request_result {
+      event!(
         Level::ERROR, msg = "could not refresh token", error = ?e
-      ),
+      );
     }
   }
 }
