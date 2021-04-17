@@ -9,6 +9,8 @@ endpoint.
 TODO
 ----
 
+* ``TokenRequest.send(url) method``
+
 * clippy setup
 
 * documentation
@@ -16,5 +18,3 @@ TODO
 * pipeline
 
 * codecov
-
-* publish
