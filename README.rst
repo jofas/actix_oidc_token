@@ -9,7 +9,7 @@ endpoint.
 TODO
 ----
 
-* ``TokenRequest.send(url) method``
+* ``TokenRequest.send(url)`` method
 
 * clippy setup
 
