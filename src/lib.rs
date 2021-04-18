@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use tokio::sync::RwLock;
 
-use tracing::{event, Level};
+use jonases_tracing_util::log_simple_err_callback;
+use jonases_tracing_util::tracing::{event, Level};
 
 use std::option::NoneError;
 use std::sync::Arc;
@@ -241,6 +242,46 @@ impl TokenRequest {
       other => other,
     }
   }
+
+  pub async fn send(
+    &self,
+    url: &str,
+  ) -> Result<TokenResponse, Error> {
+    let client = Client::builder().disable_timeout().finish();
+    self.send_with_client(url, &client).await
+  }
+
+  pub async fn send_with_client(
+    &self,
+    url: &str,
+    client: &Client,
+  ) -> Result<TokenResponse, Error> {
+    let mut response =
+      client.post(url).send_form(&self).await.map_err(
+        log_simple_err_callback("error during connection"),
+      )?;
+
+    let body = response
+      .body()
+      .await
+      .map_err(log_simple_err_callback("error retrieving payload"))?;
+
+    if response.status().is_success() {
+      Ok(serde_json::from_slice(&*body).map_err(
+        log_simple_err_callback(
+          "could not parse response to TokenResponse",
+        ),
+      )?)
+    } else {
+      event!(
+        Level::ERROR,
+        body = %String::from_utf8_lossy(&*body),
+        status = %response.status(),
+      );
+
+      Err(Error::StatusCode(response.status().as_u16()))
+    }
+  }
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq)]
@@ -254,6 +295,32 @@ pub struct TokenResponse {
 impl TokenResponse {
   pub fn bearer(&self) -> Bearer {
     Bearer::new(self.access_token.clone())
+  }
+}
+
+#[derive(Debug)]
+pub enum Error {
+  ParseError,
+  SendRequestError,
+  PayloadError,
+  StatusCode(u16),
+}
+
+impl From<serde_json::Error> for Error {
+  fn from(_: serde_json::Error) -> Self {
+    Error::ParseError
+  }
+}
+
+impl From<actix_web::client::PayloadError> for Error {
+  fn from(_: actix_web::client::PayloadError) -> Self {
+    Error::PayloadError
+  }
+}
+
+impl From<actix_web::client::SendRequestError> for Error {
+  fn from(_: actix_web::client::SendRequestError) -> Self {
+    Error::SendRequestError
   }
 }
 
