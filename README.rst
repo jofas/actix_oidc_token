@@ -9,8 +9,6 @@ endpoint.
 TODO
 ----
 
-* ``TokenRequest.send(url)`` method
-
 * clippy setup
 
 * documentation
