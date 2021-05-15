@@ -46,19 +46,21 @@ impl AccessToken {
   pub fn new(endpoint: String, token_request: TokenRequest) -> Self {
     let inner = InnerAccessToken::new(endpoint, token_request);
 
-    AccessToken {
+    let access_token = AccessToken {
       inner: Arc::new(RwLock::new(inner)),
-    }
+    };
+
+    access_token.periodically_refresh()
   }
 
-  pub async fn periodically_refresh(self) -> Self {
+  fn periodically_refresh(self) -> Self {
     let client = Client::builder().disable_timeout().finish();
-
-    self.refresh_token(&client).await;
 
     let res = self.clone();
 
     actix_web::rt::spawn(async move {
+      self.refresh_token(&client).await;
+
       loop {
         actix_web::rt::time::delay_for({
           let expires_in = match self.inner.read().await.expires_in()
