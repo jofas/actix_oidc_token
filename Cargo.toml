@@ -1,10 +1,10 @@
 [package]
 name = "actix-oidc-token"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["jofas <jonas@fc-web.de>"]
 edition = "2018"
 license = "MIT"
-readme = "README.rst"
+readme = "README.md"
 description = "Abstractions over OpenID Connect tokens for the actix-web framework"
 homepage = "https://github.com/jofas/actix_oidc_token"
 repository = "https://github.com/jofas/actix_oidc_token"

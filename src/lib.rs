@@ -69,7 +69,7 @@ impl AccessToken {
             None => 60.,
           };
 
-          Duration::from_secs_f64(expires_in * 0.98_f64)
+          Duration::from_secs_f64(expires_in * 0.9_f64)
         })
         .await;
 
