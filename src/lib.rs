@@ -1,5 +1,3 @@
-#![feature(try_trait)]
-
 use actix_web::client::Client;
 
 use actix_web_httpauth::headers::authorization::Bearer;
@@ -11,7 +9,6 @@ use tokio::sync::RwLock;
 use jonases_tracing_util::log_simple_err_callback;
 use jonases_tracing_util::tracing::{event, Level};
 
-use std::option::NoneError;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,7 +83,7 @@ impl AccessToken {
     );
   }
 
-  pub async fn bearer(&self) -> Result<Bearer, NoneError> {
+  pub async fn bearer(&self) -> Option<Bearer> {
     self.inner.read().await.bearer()
   }
 
@@ -154,8 +151,8 @@ impl InnerAccessToken {
     self.token_response.clone()
   }
 
-  fn bearer(&self) -> Result<Bearer, NoneError> {
-    Ok(Bearer::new(self.access_token()?))
+  fn bearer(&self) -> Option<Bearer> {
+    Some(Bearer::new(self.access_token()?))
   }
 }
 
